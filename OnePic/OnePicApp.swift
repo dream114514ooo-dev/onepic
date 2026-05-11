@@ -12,9 +12,18 @@ import SwiftData
 struct OnePicApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Project.self,
+            Photo.self,
         ])
+        #if DEBUG
+        #if targetEnvironment(simulator)
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        #else
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        #endif
+        #else
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        #endif
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
