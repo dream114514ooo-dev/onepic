@@ -12,6 +12,9 @@ struct ProjectListView: View {
     @State private var isCameraPresented = false
     @State private var cameraProjectID: UUID?
     @State private var errorMessage: String?
+    @State private var isRenamePresented = false
+    @State private var renameDraft = ""
+    @State private var projectIDPendingDelete: UUID?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -45,7 +48,22 @@ struct ProjectListView: View {
             .confirmationDialog(activeProject?.name ?? "", isPresented: $isActionPresented, titleVisibility: .visible) {
                 Button("拍照") { openCamera() }
                 Button("查看项目") { openDetail() }
+                Button("更改名字") { beginRename() }
+                Button("删除项目", role: .destructive) { beginDeleteProject() }
                 Button("取消", role: .cancel) {}
+            }
+            .alert("更改项目名字", isPresented: $isRenamePresented) {
+                TextField("Project name", text: $renameDraft)
+                Button("取消", role: .cancel) {}
+                Button("保存") { saveProjectName() }
+            } message: {
+                Text("给这个记录换一个更贴近它的名字。")
+            }
+            .alert("删除项目？", isPresented: Binding(get: { projectIDPendingDelete != nil }, set: { if !$0 { projectIDPendingDelete = nil } })) {
+                Button("取消", role: .cancel) { projectIDPendingDelete = nil }
+                Button("删除", role: .destructive) { deletePendingProject() }
+            } message: {
+                Text("项目里的照片和记录都会被删除。")
             }
             .navigationDestination(for: Route.self) { route in
                 switch route.kind {
@@ -129,6 +147,51 @@ struct ProjectListView: View {
         DispatchQueue.main.async {
             path.append(Route(kind: .detail, projectID: project.id))
         }
+    }
+
+    private func beginRename() {
+        guard let project = activeProject else { return }
+        renameDraft = project.name
+        isActionPresented = false
+        DispatchQueue.main.async {
+            isRenamePresented = true
+        }
+    }
+
+    private func saveProjectName() {
+        guard let project = activeProject else { return }
+        let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        project.name = trimmed
+        project.lastOpenedAt = Date()
+        try? modelContext.save()
+    }
+
+    private func beginDeleteProject() {
+        guard let project = activeProject else { return }
+        let projectID = project.id
+        isActionPresented = false
+        DispatchQueue.main.async {
+            projectIDPendingDelete = projectID
+        }
+    }
+
+    private func deletePendingProject() {
+        guard let projectID = projectIDPendingDelete,
+              let project = projects.first(where: { $0.id == projectID }) else {
+            projectIDPendingDelete = nil
+            return
+        }
+
+        #if os(iOS)
+        PhotoStore.deleteProjectDirectory(projectID: project.id)
+        #endif
+
+        path.removeAll { $0.projectID == project.id }
+        modelContext.delete(project)
+        try? modelContext.save()
+        activeProjectID = nil
+        projectIDPendingDelete = nil
     }
 
     struct Route: Hashable {

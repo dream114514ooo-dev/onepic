@@ -7,6 +7,7 @@ final class Photo {
     var shotAt: Date
     var dayKey: String
     var relativePath: String
+    var note: String?
     var projectID: UUID?
 
     var project: Project?
@@ -16,6 +17,7 @@ final class Photo {
         shotAt: Date,
         dayKey: String,
         relativePath: String,
+        note: String? = nil,
         projectID: UUID? = nil,
         project: Project? = nil
     ) {
@@ -23,6 +25,7 @@ final class Photo {
         self.shotAt = shotAt
         self.dayKey = dayKey
         self.relativePath = relativePath
+        self.note = note
         self.projectID = projectID
         self.project = project
     }

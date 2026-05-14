@@ -2,17 +2,22 @@
 @preconcurrency import AVFoundation
 import Combine
 import Foundation
+import Vision
 
 final class CameraController: NSObject, ObservableObject {
     @Published private(set) var isAuthorized = false
     @Published private(set) var position: AVCaptureDevice.Position = .back
+    @Published private(set) var faceRect: CGRect?
     let session = AVCaptureSession()
 
     private let sessionQueue = DispatchQueue(label: "onepic.camera.session")
+    private let videoQueue = DispatchQueue(label: "onepic.camera.face")
     private let photoOutput = AVCapturePhotoOutput()
+    private let videoOutput = AVCaptureVideoDataOutput()
     private let processorStore = ProcessorStore()
     private var currentInput: AVCaptureDeviceInput?
     private var internalPosition: AVCaptureDevice.Position = .back
+    private var lastFaceDetectionTime: TimeInterval = 0
 
     func requestAccessIfNeeded() async {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -30,6 +35,7 @@ final class CameraController: NSObject, ObservableObject {
         guard isAuthorized else { return }
         let session = session
         let photoOutput = photoOutput
+        let videoOutput = videoOutput
         sessionQueue.async {
             if !session.inputs.isEmpty { return }
             session.beginConfiguration()
@@ -49,6 +55,16 @@ final class CameraController: NSObject, ObservableObject {
             if session.canAddOutput(photoOutput) {
                 session.addOutput(photoOutput)
                 photoOutput.isHighResolutionCaptureEnabled = true
+            }
+
+            videoOutput.alwaysDiscardsLateVideoFrames = true
+            videoOutput.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+            ]
+            videoOutput.setSampleBufferDelegate(self, queue: self.videoQueue)
+            if session.canAddOutput(videoOutput) {
+                session.addOutput(videoOutput)
+                self.updateVideoOutputOrientation()
             }
 
             session.commitConfiguration()
@@ -76,6 +92,7 @@ final class CameraController: NSObject, ObservableObject {
             } else {
                 session.addInput(currentInput)
             }
+            self.updateVideoOutputOrientation()
             session.commitConfiguration()
         }
     }
@@ -114,6 +131,20 @@ final class CameraController: NSObject, ObservableObject {
         }
     }
 
+    private func updateVideoOutputOrientation() {
+        guard let connection = videoOutput.connection(with: .video) else { return }
+        if connection.isVideoOrientationSupported {
+            connection.videoOrientation = .portrait
+        }
+        if connection.isVideoMirroringSupported {
+            connection.isVideoMirrored = internalPosition == .front
+        }
+    }
+
+    private var visionOrientation: CGImagePropertyOrientation {
+        internalPosition == .front ? .leftMirrored : .right
+    }
+
     private final class ProcessorStore: @unchecked Sendable {
         private var items: [Int64: PhotoCaptureProcessor] = [:]
 
@@ -141,6 +172,40 @@ final class CameraController: NSObject, ObservableObject {
             guard error == nil, let data = photo.fileDataRepresentation() else { return }
             onData(data)
         }
+    }
+}
+
+extension CameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        let now = Date().timeIntervalSince1970
+        guard now - lastFaceDetectionTime > 0.18 else { return }
+        lastFaceDetectionTime = now
+
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        let request = VNDetectFaceRectanglesRequest { [weak self] request, _ in
+            let observation = (request.results as? [VNFaceObservation])?.first
+            let rect = observation.map(Self.convertVisionRect)
+            Task { @MainActor in
+                self?.faceRect = rect
+            }
+        }
+
+        let handler = VNImageRequestHandler(
+            cvPixelBuffer: pixelBuffer,
+            orientation: visionOrientation,
+            options: [:]
+        )
+        try? handler.perform([request])
+    }
+
+    private static func convertVisionRect(_ observation: VNFaceObservation) -> CGRect {
+        CGRect(
+            x: observation.boundingBox.origin.x,
+            y: 1 - observation.boundingBox.origin.y - observation.boundingBox.height,
+            width: observation.boundingBox.width,
+            height: observation.boundingBox.height
+        )
     }
 }
 #endif

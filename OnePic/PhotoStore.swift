@@ -24,6 +24,20 @@ enum PhotoStore {
         return url
     }
 
+    static func deletePhoto(relativePath: String) {
+        let url = url(for: relativePath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    static func deleteProjectDirectory(projectID: UUID) {
+        let url = documentsDirectory
+            .appendingPathComponent("Projects", isDirectory: true)
+            .appendingPathComponent(projectID.uuidString, isDirectory: true)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
     private static var documentsDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
