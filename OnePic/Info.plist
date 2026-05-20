@@ -4,9 +4,6 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>onepic needs camera access to capture your daily frame.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
+
 </dict>
 </plist>

@@ -37,6 +37,8 @@ struct ProjectDetailView: View {
             onDelete: deletePhoto
         )
         .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
+        .toolbarBackground(.hidden, for: .navigationBar)
 #else
         Text("This view is available on iPhone only.")
 #endif
@@ -67,6 +69,7 @@ private struct FilmProjectDetailView: View {
     @State private var isNoteEditorPresented = false
     @State private var noteDraft = ""
     @State private var isDeletePresented = false
+    @State private var isCardFlipped = false
     @Environment(\.modelContext) private var modelContext
 
     private var currentPhoto: Photo? {
@@ -75,53 +78,45 @@ private struct FilmProjectDetailView: View {
     }
 
     var body: some View {
-        ZStack {
-            DynamicPhotoBackground(image: currentImage, photoID: currentPhoto?.id)
-
-            VStack(spacing: 14) {
-                topBar
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
+        GeometryReader { _ in
+            ZStack {
+                DynamicPhotoBackground(image: currentImage, photoID: currentPhoto?.id)
+                    .ignoresSafeArea()
 
                 if photos.isEmpty {
                     EmptyFilmState()
                         .padding(.horizontal, 18)
-                        .frame(maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    GeometryReader { geo in
-                        HStack(spacing: 12) {
-                            mainPhotoArea
-                                .frame(width: geo.size.width * 0.74)
+                    photoContent()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
 
-                            FilmStripView(
-                                photos: photos,
-                                currentIndex: physics.currentIndex,
-                                onSelect: { index in
-                                    physics.setIndex(index, totalPhotos: photos.count)
-                                    revealDateBadge()
-                                }
-                            )
-                            .frame(width: max(72, geo.size.width * 0.22))
-                            .gesture(filmDragGesture)
-                        }
-                        .padding(.horizontal, 16)
-                    }
-
-                    bottomInfoBar
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 14)
+                if let currentPhoto {
+                    DateBadge(
+                        date: currentPhoto.shotAt,
+                        dayNumber: dayNumber(for: currentPhoto),
+                        isVisible: isDateBadgeVisible
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.leading, 28)
+                    .padding(.top, 12)
                 }
             }
-
-            if let currentPhoto {
-                DateBadge(
-                    date: currentPhoto.shotAt,
-                    dayNumber: dayNumber(for: currentPhoto),
-                    isVisible: isDateBadgeVisible
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.leading, 28)
-                .padding(.top, 86)
+            .safeAreaInset(edge: .top) {
+                topBar
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 22)
+                    .padding(.top, 10)
+                    .padding(.bottom, 12)
+            }
+            .safeAreaInset(edge: .bottom) {
+                bottomInfoBar
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 22)
+                    .padding(.trailing, 50)
+                    .padding(.top, 10)
+                    .padding(.bottom, 14)
             }
         }
         .onAppear {
@@ -133,6 +128,7 @@ private struct FilmProjectDetailView: View {
             loadCurrentImage()
         }
         .onChange(of: physics.currentIndex) { _, _ in
+            isCardFlipped = false
             loadCurrentImage()
             revealDateBadge()
         }
@@ -170,17 +166,9 @@ private struct FilmProjectDetailView: View {
                 Text(project.name)
                     .font(.headline.weight(.semibold))
                     .lineLimit(1)
-                Text("用手拨动时间")
+                Text("尝试用手拨动时间")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.66))
-            }
-
-            Spacer()
-
-            NavigationLink(destination: CameraCaptureView(project: project)) {
-                Image(systemName: "camera.fill")
-                    .font(.headline.weight(.semibold))
-                    .frame(width: 42, height: 38)
             }
         }
         .foregroundStyle(.white)
@@ -194,59 +182,50 @@ private struct FilmProjectDetailView: View {
     }
 
     private var mainPhotoArea: some View {
-        ZStack(alignment: .bottomLeading) {
-            GlassPhotoCard(image: currentImage, tilt: physics.displayOffset)
-                .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .onTapGesture {
-                    beginEditing()
-                }
-                .onLongPressGesture {
-                    isDeletePresented = true
-                }
-
-            if let currentPhoto {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("DAY \(dayNumber(for: currentPhoto))")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.72))
-                    Text(notePreview(for: currentPhoto))
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .lineLimit(2)
-                }
-                .padding(12)
-                .background(.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .padding(14)
-            }
+        FlipPhotoCard(
+            image: currentImage,
+            tilt: physics.displayOffset,
+            isFlipped: $isCardFlipped,
+            note: currentPhoto.flatMap { notePreview(for: $0, showPlaceholder: false) },
+            dayNumber: currentPhoto.map { dayNumber(for: $0) },
+            onEditNote: beginEditing
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onLongPressGesture {
+            isDeletePresented = true
         }
     }
 
     private var bottomInfoBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "flame.fill")
-                .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.25))
+        ZStack {
+            HStack {
+                Image(systemName: "flame.fill")
+                    .foregroundStyle(Color(red: 1.0, green: 0.45, blue: 0.25))
+
+                Spacer()
+
+                Button {
+                    beginEditing()
+                } label: {
+                    Image(systemName: "pencil")
+                        .frame(width: 34, height: 34)
+                }
+            }
 
             if let currentPhoto {
-                Text("DAY \(dayNumber(for: currentPhoto))")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                Text("·")
-                    .foregroundStyle(.white.opacity(0.5))
-                Text(currentPhoto.shotAt.formatted(.dateTime.year().month().day().hour().minute()))
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                HStack(spacing: 10) {
+                    Text("DAY \(dayNumber(for: currentPhoto))")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    Text("·")
+                        .foregroundStyle(.white.opacity(0.5))
+                    Text(currentPhoto.shotAt.formatted(.dateTime.year().month().day().hour().minute()))
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             } else {
                 Text("还没有照片")
                     .font(.subheadline.weight(.medium))
-            }
-
-            Spacer()
-
-            Button {
-                beginEditing()
-            } label: {
-                Image(systemName: "pencil")
-                    .frame(width: 34, height: 34)
             }
         }
         .foregroundStyle(.white)
@@ -256,6 +235,52 @@ private struct FilmProjectDetailView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(.white.opacity(0.22), lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func photoContent() -> some View {
+        GeometryReader { geo in
+            let stripW: CGFloat = 72
+            let outerPad: CGFloat = 22
+            let stripInset: CGFloat = 26
+            let stripReserve = stripW + stripInset + 6
+            let innerW = geo.size.width - outerPad * 2
+            let innerH = geo.size.height - 20
+            let maxPhotoW = innerW - stripW - stripInset - 14
+            let maxPhotoH = innerH - 12
+            let fitsByWidth = maxPhotoW * 16 / 9 <= maxPhotoH
+            let photoW = fitsByWidth ? maxPhotoW : maxPhotoH * 9 / 16
+            let photoH = fitsByWidth ? maxPhotoW * 16 / 9 : maxPhotoH
+
+            ZStack(alignment: .trailing) {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    mainPhotoArea
+                        .frame(width: photoW, height: photoH)
+                        .gesture(filmDragGesture)
+                    Spacer()
+                        .frame(width: stripReserve)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                StackedCardStrip(
+                    photos: photos,
+                    selectedIndex: physics.currentIndex,
+                    stripWidth: stripW,
+                    onSelect: { index in
+                        physics.setIndex(index, totalPhotos: photos.count)
+                        revealDateBadge()
+                    }
+                )
+                .frame(width: stripW)
+                .padding(.trailing, stripInset)
+                .clipped()
+                .highPriorityGesture(filmDragGesture)
+            }
+            .padding(.horizontal, outerPad)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 
@@ -325,9 +350,10 @@ private struct FilmProjectDetailView: View {
         return max((Calendar.current.dateComponents([.day], from: start, to: day).day ?? 0) + 1, 1)
     }
 
-    private func notePreview(for photo: Photo) -> String {
+    private func notePreview(for photo: Photo, showPlaceholder: Bool = true) -> String? {
         let trimmed = (photo.note ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "点大图编辑这一天的文字" : trimmed
+        if trimmed.isEmpty { return showPlaceholder ? "点大图编辑这一天的文字" : nil }
+        return trimmed
     }
 }
 
@@ -337,7 +363,7 @@ private final class FilmScrollPhysics: NSObject, ObservableObject {
     @Published var isDragging = false
 
     private let cellHeight: CGFloat = 84
-    private let damping: CGFloat = 0.88
+    private let damping: CGFloat = 0.82
     private var dragStartIndex: Int = 0
     private var velocity: CGFloat = 0
     private var displayLink: CADisplayLink?
@@ -382,7 +408,7 @@ private final class FilmScrollPhysics: NSObject, ObservableObject {
     ) {
         guard totalPhotos > 0 else { return }
         isDragging = false
-        velocity = (predictedTranslation - translation) / cellHeight * 0.28
+        velocity = (predictedTranslation - translation) / cellHeight * 0.22
         if abs(velocity) < 0.05 {
             snap(totalPhotos: totalPhotos, onSettled: onSettled)
             return
@@ -451,15 +477,14 @@ private struct DynamicPhotoBackground: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .blur(radius: 62)
-                    .saturation(1.18)
-                    .opacity(0.46)
+                    .blur(radius: 60)
+                    .opacity(0.4)
                     .ignoresSafeArea()
             } else {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.18, green: 0.16, blue: 0.18),
-                        Color(red: 0.08, green: 0.09, blue: 0.1)
+                        Color(red: 0.12, green: 0.11, blue: 0.14),
+                        Color(red: 0.06, green: 0.07, blue: 0.09)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -467,16 +492,168 @@ private struct DynamicPhotoBackground: View {
                 .ignoresSafeArea()
             }
 
-            Color.black.opacity(0.52)
+            Color.black.opacity(0.5)
                 .ignoresSafeArea()
         }
         .animation(.easeInOut(duration: 0.4), value: photoID)
     }
 }
 
-private struct GlassPhotoCard: View {
+private struct FlipPhotoCard: View {
     let image: UIImage?
     let tilt: CGFloat
+    @Binding var isFlipped: Bool
+    let note: String?
+    let dayNumber: Int?
+    let onEditNote: () -> Void
+
+    var body: some View {
+        Flip3DCard(isFlipped: isFlipped) {
+            cardFront
+        } back: {
+            cardBack
+        }
+        .clipped()
+        .rotation3DEffect(.degrees(Double(tilt * -8)), axis: (x: 0, y: 1, z: 0))
+        .animation(.spring(response: 0.28, dampingFraction: 0.88), value: tilt)
+        .onTapGesture {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) {
+                isFlipped.toggle()
+            }
+        }
+    }
+
+    private var cardFront: some View {
+        ZStack(alignment: .bottomLeading) {
+            GlassPhotoCard(image: image)
+
+            if let dayNumber {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("DAY \(dayNumber)")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.72))
+                    if let note {
+                        Text(note)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .lineLimit(2)
+                    }
+                }
+                .padding(12)
+                .background(.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(14)
+            }
+        }
+    }
+
+    private var cardBack: some View {
+        ZStack {
+            FrostedMirrorCardBack(image: image)
+
+            VStack(spacing: 18) {
+                if let note {
+                    Text(note)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: "pencil.line")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundStyle(.white.opacity(0.6))
+                        Text("还没有文字")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                }
+
+                Button(action: onEditNote) {
+                    Text("编辑")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 9)
+                        .background(.white.opacity(0.88), in: Capsule())
+                }
+            }
+        }
+        .shadow(color: .black.opacity(0.32), radius: 22, x: 0, y: 12)
+    }
+}
+
+private struct Flip3DCard<Front: View, Back: View>: View {
+    let isFlipped: Bool
+    let front: Front
+    let back: Back
+
+    init(
+        isFlipped: Bool,
+        @ViewBuilder front: () -> Front,
+        @ViewBuilder back: () -> Back
+    ) {
+        self.isFlipped = isFlipped
+        self.front = front()
+        self.back = back()
+    }
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .modifier(Flip3DModifier(angle: isFlipped ? 180 : 0, cornerRadius: 24, front: front, back: back))
+    }
+}
+
+private struct Flip3DModifier<Front: View, Back: View>: AnimatableModifier {
+    var angle: Double
+    let cornerRadius: CGFloat
+    let front: Front
+    let back: Back
+
+    var animatableData: Double {
+        get { angle }
+        set { angle = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        let radians = angle * .pi / 180
+        let edgeOpacity = 1 - abs(cos(radians))
+        let edgeWidth = max(1, CGFloat(edgeOpacity) * 14)
+        let showingBack = angle >= 90
+
+        return ZStack {
+            ZStack {
+                if showingBack {
+                    back
+                        .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
+                } else {
+                    front
+                }
+            }
+
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.6),
+                            .white.opacity(0.18),
+                            .black.opacity(0.22)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: edgeWidth)
+                .opacity(edgeOpacity)
+                .blur(radius: 0.6)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .rotation3DEffect(.degrees(angle), axis: (x: 0, y: 1, z: 0), perspective: 0.75)
+    }
+}
+
+private struct FrostedMirrorCardBack: View {
+    let image: UIImage?
 
     var body: some View {
         ZStack {
@@ -484,6 +661,59 @@ private struct GlassPhotoCard: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
+                    .scaleEffect(x: -1, y: 1)
+                    .saturation(0.85)
+                    .blur(radius: 18)
+                    .opacity(0.9)
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+            }
+
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(0.84)
+
+            LinearGradient(
+                colors: [.white.opacity(0.12), .black.opacity(0.24)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.7), .white.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.white.opacity(0.06), lineWidth: 8)
+                .blur(radius: 6)
+                .mask(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(lineWidth: 10)
+                )
+        }
+    }
+}
+
+private struct GlassPhotoCard: View {
+    let image: UIImage?
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .layoutPriority(-1)
             } else {
                 Rectangle()
                     .fill(.ultraThinMaterial)
@@ -504,117 +734,117 @@ private struct GlassPhotoCard: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(
                     LinearGradient(
-                        colors: [.white.opacity(0.62), .white.opacity(0.12)],
+                        colors: [.white.opacity(0.52), .white.opacity(0.08)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1.5
                 )
         }
-        .shadow(color: .black.opacity(0.32), radius: 22, x: 0, y: 12)
-        .rotation3DEffect(.degrees(Double(tilt * -8)), axis: (x: 0, y: 1, z: 0))
-        .animation(.spring(response: 0.28, dampingFraction: 0.88), value: tilt)
+        .shadow(color: .black.opacity(0.14), radius: 22, x: 0, y: 12)
     }
 }
 
-private struct FilmStripView: View {
+private struct StackedCardStrip: View {
     let photos: [Photo]
-    let currentIndex: Int
+    let selectedIndex: Int
+    let stripWidth: CGFloat
     let onSelect: (Int) -> Void
 
     var body: some View {
-        GeometryReader { geo in
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 12) {
-                        ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
-                            FilmCell(
-                                photo: photo,
-                                isSelected: index == currentIndex
-                            )
-                            .id(index)
-                            .onTapGesture {
-                                onSelect(index)
-                            }
-                        }
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 10) {
+                    ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
+                        GlassCardCell(
+                            photo: photo,
+                            isSelected: index == selectedIndex,
+                            distanceFromSelected: abs(index - selectedIndex)
+                        )
+                        .frame(width: stripWidth - 12, height: 76)
+                        .id(index)
+                        .onTapGesture { onSelect(index) }
                     }
-                    .padding(.vertical, max((geo.size.height - 76) / 2, 18))
                 }
-                .scrollDisabled(true)
-                .background(.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(.white.opacity(0.16), lineWidth: 1)
-                }
-                .onChange(of: currentIndex) { _, index in
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
-                        proxy.scrollTo(index, anchor: .center)
-                    }
+                .padding(.vertical, 18)
+                .frame(width: stripWidth)
+            }
+            .scrollIndicators(.hidden)
+            .scrollDisabled(true)
+            .onAppear {
+                proxy.scrollTo(selectedIndex, anchor: .center)
+            }
+            .onChange(of: selectedIndex) { _, next in
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                    proxy.scrollTo(next, anchor: .center)
                 }
             }
         }
     }
 }
 
-private struct FilmCell: View {
+private struct GlassCardCell: View {
     let photo: Photo
     let isSelected: Bool
+    let distanceFromSelected: Int
     @State private var image: UIImage?
+
+    private var cardOpacity: Double {
+        isSelected ? 1.0 : max(0.28, 1.0 - Double(distanceFromSelected) * 0.18)
+    }
+    private var cardScaleX: CGFloat {
+        isSelected ? 1.0 : max(0.82, 1.0 - CGFloat(distanceFromSelected) * 0.06)
+    }
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(.black.opacity(0.32))
-
             if let image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 56, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .opacity(isSelected ? 1 : 0.48)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
-                Rectangle()
-                    .fill(.white.opacity(0.08))
-                    .frame(width: 56, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(.ultraThinMaterial)
             }
 
-            if isSelected {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(.white.opacity(0.86), lineWidth: 1.6)
-                    .frame(width: 56, height: 72)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(isSelected ? 0.7 : 0.3),
+                            .white.opacity(0.05)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+
+            LinearGradient(
+                colors: [.white.opacity(0.12), .clear],
+                startPoint: .top,
+                endPoint: .center
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            if !isSelected {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.black.opacity(Double(distanceFromSelected) * 0.12))
             }
         }
-        .frame(width: 66, height: 82)
-        .scaleEffect(isSelected ? 1.06 : 1)
-        .overlay(alignment: .leading) {
-            FilmSprocketColumn()
-                .offset(x: -3)
-        }
-        .overlay(alignment: .trailing) {
-            FilmSprocketColumn()
-                .offset(x: 3)
-        }
-        .animation(.spring(response: 0.24, dampingFraction: 0.88), value: isSelected)
+        .opacity(cardOpacity)
+        .scaleEffect(x: cardScaleX * (isSelected ? 1.08 : 1.0), y: isSelected ? 1.08 : 1.0)
+        .offset(x: isSelected ? -6 : 0)
+        .zIndex(isSelected ? 1000 : Double(100 - distanceFromSelected))
+        .shadow(
+            color: .black.opacity(isSelected ? 0.4 : 0.2),
+            radius: isSelected ? 16 : 6,
+            x: 0, y: isSelected ? 10 : 3
+        )
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSelected)
         .task(id: photo.relativePath) {
             image = PhotoStore.loadImage(relativePath: photo.relativePath)
-        }
-    }
-}
-
-private struct FilmSprocketColumn: View {
-    var body: some View {
-        VStack(spacing: 8) {
-            ForEach(0..<3, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(.black.opacity(0.48))
-                    .frame(width: 8, height: 6)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .stroke(.white.opacity(0.14), lineWidth: 0.5)
-                    }
-            }
         }
     }
 }

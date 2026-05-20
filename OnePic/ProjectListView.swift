@@ -5,6 +5,9 @@ struct ProjectListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Project.lastOpenedAt, order: .reverse) private var projects: [Project]
 
+    @AppStorage("onepic_pendingDetailProjectID") private var pendingDetailProjectID = ""
+    @AppStorage("onepic_pendingDetailNonce") private var pendingDetailNonce = 0
+
     @State private var didBootstrap = false
     @State private var activeProjectID: UUID?
     @State private var isActionPresented = false
@@ -17,24 +20,22 @@ struct ProjectListView: View {
     @State private var projectIDPendingDelete: UUID?
 
     var body: some View {
+#if os(iOS)
         NavigationStack(path: $path) {
             List {
                 ForEach(projects) { project in
-                    Button {
+                    ProjectRowButton(project: project) {
                         activeProjectID = project.id
                         isActionPresented = true
-                    } label: {
-                        ProjectRowView(project: project)
                     }
-                    .buttonStyle(.plain)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .navigationTitle("Projects")
+            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -98,6 +99,12 @@ struct ProjectListView: View {
                 Text(errorMessage)
             }
         }
+        .onChange(of: pendingDetailNonce) { _, _ in
+            openDetailFromCameraIfNeeded()
+        }
+#else
+        Text("Projects are available on iPhone only.")
+#endif
     }
 
     private var canCreateProject: Bool {
@@ -144,6 +151,20 @@ struct ProjectListView: View {
         guard let project = activeProject else { return }
         project.lastOpenedAt = Date()
         isActionPresented = false
+        DispatchQueue.main.async {
+            path.append(Route(kind: .detail, projectID: project.id))
+        }
+    }
+
+    private func openDetailFromCameraIfNeeded() {
+        guard !pendingDetailProjectID.isEmpty,
+              let projectID = UUID(uuidString: pendingDetailProjectID),
+              let project = projects.first(where: { $0.id == projectID }) else {
+            return
+        }
+        pendingDetailProjectID = ""
+        activeProjectID = project.id
+        project.lastOpenedAt = Date()
         DispatchQueue.main.async {
             path.append(Route(kind: .detail, projectID: project.id))
         }
@@ -223,6 +244,25 @@ private struct ProjectRowView: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(.primary.opacity(0.07), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
+    }
+}
+
+private struct ProjectRowButton: View {
+    let project: Project
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ProjectRowView(project: project)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 }

@@ -16,8 +16,8 @@ final class CameraController: NSObject, ObservableObject {
     private let videoOutput = AVCaptureVideoDataOutput()
     private let processorStore = ProcessorStore()
     private var currentInput: AVCaptureDeviceInput?
-    private var internalPosition: AVCaptureDevice.Position = .back
-    private var lastFaceDetectionTime: TimeInterval = 0
+    nonisolated(unsafe) private var internalPosition: AVCaptureDevice.Position = .back
+    nonisolated(unsafe) private var lastFaceDetectionTime: TimeInterval = 0
 
     func requestAccessIfNeeded() async {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -54,7 +54,6 @@ final class CameraController: NSObject, ObservableObject {
 
             if session.canAddOutput(photoOutput) {
                 session.addOutput(photoOutput)
-                photoOutput.isHighResolutionCaptureEnabled = true
             }
 
             videoOutput.alwaysDiscardsLateVideoFrames = true
@@ -118,7 +117,6 @@ final class CameraController: NSObject, ObservableObject {
         let processorStore = processorStore
         sessionQueue.async {
             let settings = AVCapturePhotoSettings()
-            settings.isHighResolutionPhotoEnabled = true
 
             let processor = PhotoCaptureProcessor(
                 onData: { data in
@@ -133,15 +131,15 @@ final class CameraController: NSObject, ObservableObject {
 
     private func updateVideoOutputOrientation() {
         guard let connection = videoOutput.connection(with: .video) else { return }
-        if connection.isVideoOrientationSupported {
-            connection.videoOrientation = .portrait
+        if connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
         }
         if connection.isVideoMirroringSupported {
             connection.isVideoMirrored = internalPosition == .front
         }
     }
 
-    private var visionOrientation: CGImagePropertyOrientation {
+    nonisolated private var visionOrientation: CGImagePropertyOrientation {
         internalPosition == .front ? .leftMirrored : .right
     }
 
@@ -159,15 +157,15 @@ final class CameraController: NSObject, ObservableObject {
 
     private final class PhotoCaptureProcessor: NSObject, AVCapturePhotoCaptureDelegate {
         let id: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
-        private let onData: (Data) -> Void
-        private let onFinish: (Int64) -> Void
+        nonisolated(unsafe) private let onData: (Data) -> Void
+        nonisolated(unsafe) private let onFinish: (Int64) -> Void
 
         init(onData: @escaping (Data) -> Void, onFinish: @escaping (Int64) -> Void) {
             self.onData = onData
             self.onFinish = onFinish
         }
 
-        func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        nonisolated func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
             defer { onFinish(id) }
             guard error == nil, let data = photo.fileDataRepresentation() else { return }
             onData(data)
@@ -176,7 +174,7 @@ final class CameraController: NSObject, ObservableObject {
 }
 
 extension CameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+    nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         let now = Date().timeIntervalSince1970
         guard now - lastFaceDetectionTime > 0.18 else { return }
         lastFaceDetectionTime = now
@@ -184,10 +182,11 @@ extension CameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
         let request = VNDetectFaceRectanglesRequest { [weak self] request, _ in
+            let weakSelf = self
             let observation = (request.results as? [VNFaceObservation])?.first
             let rect = observation.map(Self.convertVisionRect)
             Task { @MainActor in
-                self?.faceRect = rect
+                weakSelf?.faceRect = rect
             }
         }
 
@@ -199,7 +198,7 @@ extension CameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
         try? handler.perform([request])
     }
 
-    private static func convertVisionRect(_ observation: VNFaceObservation) -> CGRect {
+    nonisolated private static func convertVisionRect(_ observation: VNFaceObservation) -> CGRect {
         CGRect(
             x: observation.boundingBox.origin.x,
             y: 1 - observation.boundingBox.origin.y - observation.boundingBox.height,
