@@ -21,4 +21,4 @@ xcuserdata/
 .env.local
 
 # Logs
-*.log
+*.log.trae/
