@@ -13,6 +13,7 @@ final class Project {
     var ghostEnabled: Bool
     var ghostOpacity: Double
     var ghostPhotoID: UUID?
+    var reminderMinutes: Int?
 
     @Relationship(deleteRule: .cascade, inverse: \Photo.project)
     var photos: [Photo]
@@ -28,6 +29,7 @@ final class Project {
         ghostEnabled: Bool = false,
         ghostOpacity: Double = 0.4,
         ghostPhotoID: UUID? = nil,
+        reminderMinutes: Int? = nil,
         photos: [Photo] = []
     ) {
         self.id = id
@@ -40,6 +42,7 @@ final class Project {
         self.ghostEnabled = ghostEnabled
         self.ghostOpacity = ghostOpacity
         self.ghostPhotoID = ghostPhotoID
+        self.reminderMinutes = reminderMinutes
         self.photos = photos
     }
 

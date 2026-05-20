@@ -18,6 +18,8 @@ struct ProjectListView: View {
     @State private var isRenamePresented = false
     @State private var renameDraft = ""
     @State private var projectIDPendingDelete: UUID?
+    @State private var reminderProjectID: UUID?
+    @State private var isReminderPresented = false
 
     var body: some View {
 #if os(iOS)
@@ -49,6 +51,7 @@ struct ProjectListView: View {
             .confirmationDialog(activeProject?.name ?? "", isPresented: $isActionPresented, titleVisibility: .visible) {
                 Button("拍照") { openCamera() }
                 Button("查看项目") { openDetail() }
+                Button("提醒设置") { openReminderSettings() }
                 Button("更改名字") { beginRename() }
                 Button("删除项目", role: .destructive) { beginDeleteProject() }
                 Button("取消", role: .cancel) {}
@@ -84,6 +87,16 @@ struct ProjectListView: View {
                     NavigationStack {
                         CameraCaptureView(project: project)
                     }
+                } else {
+                    EmptyView()
+                }
+            }
+        }
+        .sheet(isPresented: $isReminderPresented, onDismiss: { reminderProjectID = nil }) {
+            Group {
+                if let reminderProjectID,
+                   let project = projects.first(where: { $0.id == reminderProjectID }) {
+                    ReminderSettingsView(project: project)
                 } else {
                     EmptyView()
                 }
@@ -222,6 +235,15 @@ struct ProjectListView: View {
 
         let kind: Kind
         let projectID: UUID
+    }
+
+    private func openReminderSettings() {
+        guard let project = activeProject else { return }
+        isActionPresented = false
+        reminderProjectID = project.id
+        DispatchQueue.main.async {
+            isReminderPresented = true
+        }
     }
 }
 

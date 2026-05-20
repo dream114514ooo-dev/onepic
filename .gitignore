@@ -1,0 +1,24 @@
+# Claude / AI tools
+.claude/
+.claude-cache/
+.claude-code/
+
+# Trea
+.trea/
+.trea-cache/
+
+# macOS
+.DS_Store
+
+# Xcode
+DerivedData/
+.build/
+*.xcworkspace
+xcuserdata/
+
+# Secrets
+.env
+.env.local
+
+# Logs
+*.log
