@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    @EnvironmentObject private var loc: LocalizationManager
+
     var body: some View {
         ProjectListView()
     }
@@ -17,4 +19,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .modelContainer(for: [Project.self, Photo.self], inMemory: true)
+        .environmentObject(LocalizationManager())
 }

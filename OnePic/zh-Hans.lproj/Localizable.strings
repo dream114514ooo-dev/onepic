@@ -1,0 +1,79 @@
+"app.name" = "OnePic";
+
+"home.title" = "项目";
+
+"common.ok" = "好";
+"common.cancel" = "取消";
+"common.save" = "保存";
+"common.saving" = "保存中…";
+"common.delete" = "删除";
+"common.done" = "完成";
+"common.edit" = "编辑";
+"common.skip" = "跳过";
+
+"platform.iphone_only" = "项目仅在 iPhone 上可用。";
+"platform.iphone_only_detail" = "该页面仅在 iPhone 上可用。";
+"platform.iphone_only_camera" = "相机仅在 iPhone 上可用。";
+"platform.iphone_only_reminders" = "提醒仅在 iPhone 上可用。";
+
+"project.new" = "新建项目";
+"project.name_placeholder" = "项目名字";
+"project.default_name_format" = "项目 %d";
+"project.streak_format" = "连续 %d 天";
+"project.rename.title" = "更改项目名字";
+"project.rename.action" = "更改名字";
+"project.rename.message" = "给这个记录换一个更贴近它的名字。";
+"project.delete.title" = "删除项目？";
+"project.delete.message" = "项目里的照片和记录都会被删除。";
+
+"photo.delete.title" = "删除这张照片？";
+"photo.delete.action" = "删除照片";
+"photo.delete.message" = "照片文件和背面的文字都会被删除。";
+
+"detail.subtitle_swipe_time" = "尝试用手拨动时间";
+"detail.day_format" = "DAY %d";
+"detail.empty_photos" = "还没有照片";
+"detail.note_placeholder" = "点大图编辑这一天的文字";
+"detail.empty_note" = "还没有文字";
+"detail.empty_film_title" = "还没有胶片";
+"detail.empty_film_message" = "拍下第一张，时间就会从这里开始。";
+"detail.note_editor.title" = "照片背面的文字";
+"detail.note_editor.placeholder" = "写一点这一天的变化或心情。";
+"detail.note_editor.nav_title" = "编辑 note";
+
+"action.capture" = "拍照";
+"action.view" = "查看项目";
+
+"ghost.settings.title" = "叠加设置";
+"ghost.overlay" = "叠加";
+"ghost.disable" = "关闭叠加";
+"ghost.use_latest" = "使用最新一张";
+"ghost.choose_photo" = "选择叠加照片";
+"ghost.opacity" = "透明度";
+
+"reminder.settings.title" = "提醒设置";
+"reminder.enable_daily" = "开启每日提醒";
+"reminder.time" = "提醒时间";
+"reminder.permission_denied.title" = "通知权限未开启";
+"reminder.permission_denied.message" = "请在系统设置里允许通知后再开启提醒。";
+"reminder.notification_body" = "该拍今天的 %@ 了";
+
+"camera.simulator.title" = "Simulator 不支持相机预览";
+"camera.simulator.message" = "请用真机运行 onepic 才能拍照。\n（时间线/导出等功能后续可以继续在模拟器测试）";
+"camera.permission.title" = "需要相机权限";
+"camera.permission.message" = "请在系统设置中开启相机权限。";
+"camera.capture_failed.title" = "拍照失败";
+"camera.completed" = "完成";
+"camera.note_prompt" = "今天想记下什么？";
+"camera.note_placeholder" = "写一点变化、心情，或者点跳过。";
+"camera.error.invalid_photo_data" = "照片数据无效。";
+"camera.error.encode_jpeg_failed" = "JPEG 编码失败。";
+
+"camera.face.searching" = "把脸放进圆框";
+"camera.face.move_closer" = "靠近一点";
+"camera.face.move_back" = "远一点";
+"camera.face.good" = "保持住";
+
+"streak.days_format" = "连续打卡 %d 天";
+"streak.prompt_title_format" = "真厉害，你已经坚持了 %d 天";
+"streak.prompt_subtitle" = "请长按火焰";

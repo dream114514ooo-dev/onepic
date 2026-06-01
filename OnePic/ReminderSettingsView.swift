@@ -9,6 +9,7 @@ struct ReminderSettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var loc: LocalizationManager
 
     @State private var isEnabled: Bool
     @State private var time: Date
@@ -29,27 +30,27 @@ struct ReminderSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Toggle("开启每日提醒", isOn: $isEnabled)
+                Toggle(loc.t("reminder.enable_daily"), isOn: $isEnabled)
 
-                DatePicker("提醒时间", selection: $time, displayedComponents: .hourAndMinute)
+                DatePicker(loc.t("reminder.time"), selection: $time, displayedComponents: .hourAndMinute)
                     .disabled(!isEnabled)
             }
-            .navigationTitle("提醒设置")
+            .navigationTitle(loc.t("reminder.settings.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("取消") { dismiss() }
+                    Button(loc.t("common.cancel")) { dismiss() }
                         .disabled(isSaving)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("保存") { Task { await save() } }
+                    Button(loc.t("common.save")) { Task { await save() } }
                         .disabled(isSaving)
                 }
             }
-            .alert("通知权限未开启", isPresented: $showDeniedAlert) {
-                Button("OK", role: .cancel) {}
+            .alert(loc.t("reminder.permission_denied.title"), isPresented: $showDeniedAlert) {
+                Button(loc.t("common.ok"), role: .cancel) {}
             } message: {
-                Text("请在系统设置里允许通知后再开启提醒。")
+                Text(loc.t("reminder.permission_denied.message"))
             }
         }
     }
@@ -106,8 +107,8 @@ struct ReminderSettingsView: View {
         comps.minute = minutes % 60
 
         let content = UNMutableNotificationContent()
-        content.title = "OnePic"
-        content.body = "该拍今天的 \(project.name) 了"
+        content.title = loc.t("app.name")
+        content.body = loc.tf("reminder.notification_body", project.name)
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
@@ -143,9 +144,10 @@ struct ReminderSettingsView: View {
 #else
 struct ReminderSettingsView: View {
     let project: Project
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
-        Text("Reminders are available on iPhone only.")
+        Text(loc.t("platform.iphone_only_reminders"))
     }
 }
 #endif

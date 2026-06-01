@@ -3,11 +3,11 @@ import Foundation
 import UIKit
 
 enum PhotoStore {
-    static func url(for relativePath: String) -> URL {
+    nonisolated static func url(for relativePath: String) -> URL {
         documentsDirectory.appendingPathComponent(relativePath, isDirectory: false)
     }
 
-    static func loadImage(relativePath: String) -> UIImage? {
+    nonisolated static func loadImage(relativePath: String) -> UIImage? {
         UIImage(contentsOfFile: url(for: relativePath).path)
     }
 
@@ -38,7 +38,7 @@ enum PhotoStore {
         try? FileManager.default.removeItem(at: url)
     }
 
-    private static var documentsDirectory: URL {
+    nonisolated private static var documentsDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 }

@@ -1,0 +1,79 @@
+"app.name" = "OnePic";
+
+"home.title" = "โปรเจกต์";
+
+"common.ok" = "ตกลง";
+"common.cancel" = "ยกเลิก";
+"common.save" = "บันทึก";
+"common.saving" = "กำลังบันทึก…";
+"common.delete" = "ลบ";
+"common.done" = "เสร็จสิ้น";
+"common.edit" = "แก้ไข";
+"common.skip" = "ข้าม";
+
+"platform.iphone_only" = "โปรเจกต์ใช้งานได้เฉพาะบน iPhone เท่านั้น";
+"platform.iphone_only_detail" = "หน้านี้ใช้งานได้เฉพาะบน iPhone เท่านั้น";
+"platform.iphone_only_camera" = "กล้องใช้งานได้เฉพาะบน iPhone เท่านั้น";
+"platform.iphone_only_reminders" = "การเตือนใช้งานได้เฉพาะบน iPhone เท่านั้น";
+
+"project.new" = "โปรเจกต์ใหม่";
+"project.name_placeholder" = "ชื่อโปรเจกต์";
+"project.default_name_format" = "โปรเจกต์ %d";
+"project.streak_format" = "ต่อเนื่อง %d วัน";
+"project.rename.title" = "เปลี่ยนชื่อโปรเจกต์";
+"project.rename.action" = "เปลี่ยนชื่อ";
+"project.rename.message" = "ตั้งชื่อให้โปรเจกต์นี้";
+"project.delete.title" = "ลบโปรเจกต์?";
+"project.delete.message" = "รูปภาพและบันทึกทั้งหมดในโปรเจกต์นี้จะถูกลบ";
+
+"photo.delete.title" = "ลบรูปนี้?";
+"photo.delete.action" = "ลบรูป";
+"photo.delete.message" = "ไฟล์รูปและโน้ตของรูปนี้จะถูกลบ";
+
+"detail.subtitle_swipe_time" = "ปัดเพื่อดูตามเวลา";
+"detail.day_format" = "DAY %d";
+"detail.empty_photos" = "ยังไม่มีรูป";
+"detail.note_placeholder" = "แตะรูปเพื่อเขียนโน้ตของวันนี้";
+"detail.empty_note" = "ยังไม่มีโน้ต";
+"detail.empty_film_title" = "ยังไม่มีฟิล์ม";
+"detail.empty_film_message" = "ถ่ายรูปแรกเพื่อเริ่มไทม์ไลน์";
+"detail.note_editor.title" = "โน้ตรูปภาพ";
+"detail.note_editor.placeholder" = "เขียนอะไรสักอย่างเกี่ยวกับวันนี้…";
+"detail.note_editor.nav_title" = "แก้ไขโน้ต";
+
+"action.capture" = "ถ่าย";
+"action.view" = "ดูโปรเจกต์";
+
+"ghost.settings.title" = "ซ้อนภาพ";
+"ghost.overlay" = "ซ้อนภาพ";
+"ghost.disable" = "ปิดการซ้อน";
+"ghost.use_latest" = "ใช้รูปล่าสุด";
+"ghost.choose_photo" = "เลือกรูปสำหรับซ้อน";
+"ghost.opacity" = "ความทึบแสง";
+
+"reminder.settings.title" = "การเตือน";
+"reminder.enable_daily" = "เตือนทุกวัน";
+"reminder.time" = "เวลา";
+"reminder.permission_denied.title" = "ปิดการแจ้งเตือน";
+"reminder.permission_denied.message" = "กรุณาเปิดการแจ้งเตือนในตั้งค่าเพื่อใช้งานการเตือน";
+"reminder.notification_body" = "ถึงเวลาถ่าย %@ ของวันนี้แล้ว";
+
+"camera.simulator.title" = "ไม่สามารถดูภาพกล้องใน Simulator ได้";
+"camera.simulator.message" = "กรุณาใช้ iPhone จริงเพื่อถ่ายรูป\n(ยังทดสอบฟีเจอร์ไทม์ไลน์/ส่งออกใน Simulator ได้)";
+"camera.permission.title" = "ต้องอนุญาตการใช้กล้อง";
+"camera.permission.message" = "โปรดเปิดการเข้าถึงกล้องในตั้งค่า";
+"camera.capture_failed.title" = "ถ่ายไม่สำเร็จ";
+"camera.completed" = "บันทึกแล้ว";
+"camera.note_prompt" = "วันนี้อยากบันทึกอะไร?";
+"camera.note_placeholder" = "เขียนอะไรสักอย่าง หรือแตะ ข้าม";
+"camera.error.invalid_photo_data" = "ข้อมูลรูปภาพไม่ถูกต้อง";
+"camera.error.encode_jpeg_failed" = "แปลงเป็น JPEG ไม่สำเร็จ";
+
+"camera.face.searching" = "จัดใบหน้าให้อยู่ในวงกลม";
+"camera.face.move_closer" = "เข้ามาใกล้อีกนิด";
+"camera.face.move_back" = "ถอยออกอีกนิด";
+"camera.face.good" = "อยู่นิ่งๆ";
+
+"streak.days_format" = "ต่อเนื่อง %d วัน";
+"streak.prompt_title_format" = "เยี่ยมมาก — ต่อเนื่องแล้ว %d วัน";
+"streak.prompt_subtitle" = "กดค้างที่เปลวไฟ";

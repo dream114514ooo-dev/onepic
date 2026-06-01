@@ -4,6 +4,7 @@ import SwiftData
 struct ProjectPickerView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var loc: LocalizationManager
 
     let projects: [Project]
     @Binding var selectedProjectID: String
@@ -34,16 +35,16 @@ struct ProjectPickerView: View {
                     Button {
                         createProject()
                     } label: {
-                        Label("New Project", systemImage: "plus")
+                        Label(loc.t("project.new"), systemImage: "plus")
                     }
                     .disabled(!canCreateProject)
                 }
             }
             .scrollContentBackground(.hidden)
             .background(.ultraThinMaterial)
-            .navigationTitle("Projects")
+            .navigationTitle(loc.t("home.title"))
             .toolbar {
-                ToolbarItem { Button("Done") { dismiss() } }
+                ToolbarItem { Button(loc.t("common.done")) { dismiss() } }
             }
         }
     }
@@ -53,7 +54,7 @@ struct ProjectPickerView: View {
     }
 
     private func createProject() {
-        let name = "Project \(projects.count + 1)"
+        let name = loc.tf("project.default_name_format", projects.count + 1)
         let project = Project(name: name, lastOpenedAt: Date())
         modelContext.insert(project)
         selectedProjectID = project.id.uuidString

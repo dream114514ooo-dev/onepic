@@ -10,6 +10,8 @@ import SwiftData
 
 @main
 struct OnePicApp: App {
+    @StateObject private var localization = LocalizationManager()
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Project.self,
@@ -35,6 +37,7 @@ struct OnePicApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(localization)
         }
         .modelContainer(sharedModelContainer)
     }

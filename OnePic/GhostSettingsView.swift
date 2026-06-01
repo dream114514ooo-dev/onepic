@@ -9,6 +9,7 @@ struct GhostSettingsView: View {
     let project: Project
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var loc: LocalizationManager
     @Query private var photos: [Photo]
     @State private var isOpacityPresented = false
 
@@ -26,7 +27,7 @@ struct GhostSettingsView: View {
             List {
                 Section {
                     Toggle(isOn: Binding(get: { project.ghostEnabled }, set: { project.ghostEnabled = $0 })) {
-                        Text("叠加")
+                        Text(loc.t("ghost.overlay"))
                     }
                 }
 
@@ -36,7 +37,7 @@ struct GhostSettingsView: View {
                         project.ghostPhotoID = nil
                     } label: {
                         HStack {
-                            Text("关闭叠加")
+                            Text(loc.t("ghost.disable"))
                             Spacer()
                             if !project.ghostEnabled {
                                 Image(systemName: "checkmark")
@@ -50,7 +51,7 @@ struct GhostSettingsView: View {
                         project.ghostPhotoID = nil
                     } label: {
                         HStack {
-                            Text("使用最新一张")
+                            Text(loc.t("ghost.use_latest"))
                             Spacer()
                             if project.ghostEnabled, project.ghostPhotoID == nil {
                                 Image(systemName: "checkmark")
@@ -78,7 +79,7 @@ struct GhostSettingsView: View {
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 } header: {
-                    Text("选择叠加照片")
+                    Text(loc.t("ghost.choose_photo"))
                 }
 
                 Section {
@@ -86,7 +87,7 @@ struct GhostSettingsView: View {
                         isOpacityPresented = true
                     } label: {
                         HStack {
-                            Text("调整透明度")
+                            Text(loc.t("ghost.opacity"))
                             Spacer()
                             Text("\(Int(project.ghostOpacity * 100))%")
                                 .foregroundStyle(.secondary)
@@ -95,12 +96,12 @@ struct GhostSettingsView: View {
                     .foregroundStyle(.primary)
                 }
             }
-            .navigationTitle("叠加设置")
+            .navigationTitle(loc.t("ghost.settings.title"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem { Button("完成") { dismiss() } }
+                ToolbarItem { Button(loc.t("common.done")) { dismiss() } }
             }
             .sheet(isPresented: $isOpacityPresented) {
                 GhostOpacitySheet(opacity: Binding(get: { project.ghostOpacity }, set: { project.ghostOpacity = $0 }))
@@ -159,6 +160,7 @@ private struct GhostThumbnailCell: View {
 
 private struct GhostOpacitySheet: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var loc: LocalizationManager
     @Binding var opacity: Double
 
     var body: some View {
@@ -169,12 +171,12 @@ private struct GhostOpacitySheet: View {
                     .font(.headline)
             }
             .padding(18)
-            .navigationTitle("透明度")
+            .navigationTitle(loc.t("ghost.opacity"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem { Button("完成") { dismiss() } }
+                ToolbarItem { Button(loc.t("common.done")) { dismiss() } }
             }
         }
     }

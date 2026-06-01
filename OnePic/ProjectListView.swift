@@ -8,6 +8,7 @@ struct ProjectListView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var loc: LocalizationManager
     @Query(sort: \Project.lastOpenedAt, order: .reverse) private var projects: [Project]
 
     @AppStorage("onepic_pendingDetailProjectID") private var pendingDetailProjectID = ""
@@ -26,9 +27,12 @@ struct ProjectListView: View {
     @State private var errorMessage: String?
     @State private var isRenamePresented = false
     @State private var renameDraft = ""
+    @State private var renameProjectID: UUID?
     @State private var projectIDPendingDelete: UUID?
     @State private var reminderProjectID: UUID?
     @State private var isReminderPresented = false
+    @State private var isLanguagePickerVisible = false
+    @State private var languagePickerProgress: CGFloat = 0
     @Namespace private var selectionNamespace
 
     var body: some View {
@@ -48,8 +52,7 @@ struct ProjectListView: View {
                             } onLongPress: {
                                 presentActionOverlay(projectID: project.id, mode: .edit)
                             } onChevronTap: {
-                                activeProjectID = project.id
-                                openDetail()
+                                openCameraQuick(projectID: project.id)
                             }
                         }
                     }
@@ -60,10 +63,25 @@ struct ProjectListView: View {
                     .onPreferenceChange(ProjectCardFrameKey.self) { frames in
                         projectFrames = frames
                     }
-                    .navigationTitle("Projects")
+                    .navigationTitle(loc.t("home.title"))
                     .toolbarBackground(Color(.systemBackground), for: .navigationBar)
                     .toolbarBackground(.visible, for: .navigationBar)
                     .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                presentLanguagePicker()
+                            } label: {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .frame(width: 36, height: 36)
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay {
+                                        Circle()
+                                            .stroke(.white.opacity(0.22), lineWidth: 1)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                        }
                         ToolbarItem {
                             Button {
                                 createProject()
@@ -73,18 +91,23 @@ struct ProjectListView: View {
                             .disabled(!canCreateProject)
                         }
                     }
-                    .alert("更改项目名字", isPresented: $isRenamePresented) {
-                        TextField("Project name", text: $renameDraft)
-                        Button("取消", role: .cancel) {}
-                        Button("保存") { saveProjectName() }
+                    .alert(loc.t("project.rename.title"), isPresented: $isRenamePresented) {
+                        TextField(loc.t("project.name_placeholder"), text: $renameDraft)
+                        Button(loc.t("common.cancel"), role: .cancel) {}
+                        Button(loc.t("common.save")) { saveProjectName() }
                     } message: {
-                        Text("给这个记录换一个更贴近它的名字。")
+                        Text(loc.t("project.rename.message"))
                     }
-                    .alert("删除项目？", isPresented: Binding(get: { projectIDPendingDelete != nil }, set: { if !$0 { projectIDPendingDelete = nil } })) {
-                        Button("取消", role: .cancel) { projectIDPendingDelete = nil }
-                        Button("删除", role: .destructive) { deletePendingProject() }
+                    .onChange(of: isRenamePresented) { _, isPresented in
+                        if !isPresented {
+                            renameProjectID = nil
+                        }
+                    }
+                    .alert(loc.t("project.delete.title"), isPresented: Binding(get: { projectIDPendingDelete != nil }, set: { if !$0 { projectIDPendingDelete = nil } })) {
+                        Button(loc.t("common.cancel"), role: .cancel) { projectIDPendingDelete = nil }
+                        Button(loc.t("common.delete"), role: .destructive) { deletePendingProject() }
                     } message: {
-                        Text("项目里的照片和记录都会被删除。")
+                        Text(loc.t("project.delete.message"))
                     }
                     .navigationDestination(for: Route.self) { route in
                         switch route.kind {
@@ -99,7 +122,7 @@ struct ProjectListView: View {
                 }
                 .blur(radius: 15 * actionOverlayProgress)
                 .animation(.easeInOut(duration: 0.25), value: actionOverlayProgress)
-                .allowsHitTesting(!isActionOverlayVisible)
+                .allowsHitTesting(!isActionOverlayVisible && !isLanguagePickerVisible)
 
                 if isActionOverlayVisible,
                    let activeProjectID,
@@ -121,6 +144,19 @@ struct ProjectListView: View {
                     )
                     .ignoresSafeArea()
                     .zIndex(999)
+                }
+
+                if isLanguagePickerVisible {
+                    LanguagePickerOverlay(
+                        progress: languagePickerProgress,
+                        selectedLanguage: loc.language,
+                        onDismiss: dismissLanguagePicker,
+                        onSelect: { language in
+                            loc.setLanguage(language)
+                            dismissLanguagePicker()
+                        }
+                    )
+                    .zIndex(1001)
                 }
             }
         }
@@ -149,8 +185,8 @@ struct ProjectListView: View {
         .task {
             await bootstrapIfNeeded()
         }
-        .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-            Button("OK", role: .cancel) { errorMessage = nil }
+        .alert(loc.t("common.error"), isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button(loc.t("common.ok"), role: .cancel) { errorMessage = nil }
         } message: {
             if let errorMessage {
                 Text(errorMessage)
@@ -160,7 +196,7 @@ struct ProjectListView: View {
             openDetailFromCameraIfNeeded()
         }
 #else
-        Text("Projects are available on iPhone only.")
+        Text(loc.t("platform.iphone_only"))
 #endif
     }
 
@@ -173,7 +209,7 @@ struct ProjectListView: View {
         didBootstrap = true
 
         guard projects.isEmpty else { return }
-        let project = Project(name: "Project 1", lastOpenedAt: Date())
+        let project = Project(name: loc.tf("project.default_name_format", 1), lastOpenedAt: Date())
         modelContext.insert(project)
         do {
             try modelContext.save()
@@ -183,7 +219,7 @@ struct ProjectListView: View {
     }
 
     private func createProject() {
-        let name = "Project \(projects.count + 1)"
+        let name = loc.tf("project.default_name_format", projects.count + 1)
         let project = Project(name: name, lastOpenedAt: Date())
         modelContext.insert(project)
         try? modelContext.save()
@@ -218,10 +254,40 @@ struct ProjectListView: View {
         }
     }
 
+    private func presentLanguagePicker() {
+        if isActionOverlayVisible {
+            dismissActionOverlay()
+        }
+        isLanguagePickerVisible = true
+        languagePickerProgress = 0
+        withAnimation(.interactiveSpring(response: 0.44, dampingFraction: 0.86, blendDuration: 0.12)) {
+            languagePickerProgress = 1
+        }
+    }
+
+    private func dismissLanguagePicker() {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            languagePickerProgress = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            isLanguagePickerVisible = false
+        }
+    }
+
     private func openCamera() {
         guard let project = activeProject else { return }
         project.lastOpenedAt = Date()
         dismissActionOverlay()
+        cameraProjectID = project.id
+        DispatchQueue.main.async {
+            isCameraPresented = true
+        }
+    }
+
+    private func openCameraQuick(projectID: UUID) {
+        guard let project = projects.first(where: { $0.id == projectID }) else { return }
+        project.lastOpenedAt = Date()
+        try? modelContext.save()
         cameraProjectID = project.id
         DispatchQueue.main.async {
             isCameraPresented = true
@@ -254,6 +320,7 @@ struct ProjectListView: View {
     private func beginRename() {
         guard let project = activeProject else { return }
         renameDraft = project.name
+        renameProjectID = project.id
         dismissActionOverlay()
         DispatchQueue.main.async {
             isRenamePresented = true
@@ -261,12 +328,16 @@ struct ProjectListView: View {
     }
 
     private func saveProjectName() {
-        guard let project = activeProject else { return }
+        guard let renameProjectID,
+              let project = projects.first(where: { $0.id == renameProjectID }) else {
+            return
+        }
         let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         project.name = trimmed
         project.lastOpenedAt = Date()
         try? modelContext.save()
+        isRenamePresented = false
     }
 
     private func beginDeleteProject() {
@@ -315,17 +386,93 @@ struct ProjectListView: View {
     }
 }
 
+private struct LanguagePickerOverlay: View {
+    let progress: CGFloat
+    let selectedLanguage: LocalizationManager.Language
+    let onDismiss: () -> Void
+    let onSelect: (LocalizationManager.Language) -> Void
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onDismiss)
+
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(LocalizationManager.Language.allCases) { language in
+                    Button {
+                        onSelect(language)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text(language.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+
+                            Spacer(minLength: 0)
+
+                            if language == selectedLanguage {
+                                Image(systemName: "checkmark")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .frame(width: 180)
+                        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .stroke(.white.opacity(language == selectedLanguage ? 0.34 : 0.18), lineWidth: 1)
+                                .shadow(color: .white.opacity(language == selectedLanguage ? 0.18 : 0.0), radius: language == selectedLanguage ? 14 : 0)
+                                .clipShape(Capsule(style: .continuous))
+                        }
+                        .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 14)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(12)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(.white.opacity(0.18), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.22), radius: 22, x: 0, y: 14)
+            .padding(.leading, 16)
+            .padding(.top, safeAreaTopInset + 20)
+            .opacity(Double(progress))
+            .scaleEffect(0.96 + 0.04 * progress, anchor: .topLeading)
+        }
+    }
+
+    private var safeAreaTopInset: CGFloat {
+#if os(iOS)
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else {
+            return 0
+        }
+        return window.safeAreaInsets.top
+#else
+        return 0
+#endif
+    }
+}
+
 private struct ProjectRowView: View {
     let project: Project
     let isActive: Bool
     let namespace: Namespace.ID
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(project.name)
                     .font(.headline)
-                Text("Streak \(String(project.currentStreak))")
+                Text(loc.tf("project.streak_format", project.currentStreak))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -446,6 +593,7 @@ private struct ProjectActionOverlay: View {
     let onReminder: () -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         let center = CGPoint(x: containerSize.width * 0.5, y: containerSize.height * 0.44)
@@ -464,52 +612,55 @@ private struct ProjectActionOverlay: View {
                 .ignoresSafeArea()
                 .onTapGesture(perform: onDismiss)
 
-            ProjectCenterCapsule(project: project, namespace: namespace, maxWidth: containerSize.width - 120)
-                .position(x: center.x, y: center.y)
-                .scaleEffect(0.94 + 0.06 * progress)
-                .shadow(color: .black.opacity(0.22), radius: 24, x: 0, y: 16)
-                .onTapGesture {}
+            VStack(spacing: 12) {
+                ProjectCenterCapsule(project: project, namespace: namespace, maxWidth: containerSize.width - 120)
+                    .scaleEffect(0.94 + 0.06 * progress)
+                    .shadow(color: .black.opacity(0.22), radius: 24, x: 0, y: 16)
+                    .onTapGesture {}
 
-            radialMenu(center: center)
-                .allowsHitTesting(progress > 0.9)
+                verticalMenu()
+                    .allowsHitTesting(progress > 0.9)
+            }
+            .position(x: center.x, y: center.y)
         }
     }
 
-    private func radialMenu(center: CGPoint) -> some View {
-        let y = min(78, containerSize.height * 0.11) * 0.72
-        let yCTA = y * 2.05
-
-        let items: [(String, String, ButtonRole?, CGVector, Bool, () -> Void)]
+    private func verticalMenu() -> some View {
+        let items: [(String, String, ButtonRole?, Bool, () -> Void)]
         switch mode {
         case .quick:
             items = [
-                ("删除项目", "trash.fill", .destructive, .init(dx: 0, dy: -y), false, onDelete),
-                ("提醒设置", "bell.badge.fill", nil, .init(dx: 0, dy: y), false, onReminder),
-                ("拍照", "camera.fill", nil, .init(dx: 0, dy: yCTA), true, onCamera)
+                (loc.t("action.view"), "doc.text.magnifyingglass", nil, false, onDetail),
+                (loc.t("action.capture"), "camera.fill", nil, true, onCamera),
+                (loc.t("reminder.settings.title"), "bell.badge.fill", nil, false, onReminder),
+                (loc.t("common.delete"), "trash.fill", .destructive, false, onDelete)
             ]
         case .edit:
             items = [
-                ("编辑名字", "pencil", nil, .init(dx: 0, dy: -y), false, onRename),
-                ("删除项目", "trash.fill", .destructive, .init(dx: 0, dy: y), false, onDelete)
+                (loc.t("project.rename.action"), "pencil", nil, false, onRename),
+                (loc.t("common.delete"), "trash.fill", .destructive, false, onDelete)
             ]
         }
 
-        return ZStack {
+        let ctaWidth = min(containerSize.width - 56, 300)
+        let normalWidth = min(containerSize.width - 92, 260)
+
+        return VStack(spacing: 10) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 ProjectActionCard(
                     title: item.0,
                     systemImage: item.1,
                     role: item.2,
-                    isCTA: item.4,
-                    action: item.5
+                    isCTA: item.3,
+                    action: item.4
                 )
-                .position(x: center.x, y: center.y)
-                .offset(x: item.3.dx * progress, y: item.3.dy * progress)
-                .opacity(Double(progress) * (item.4 ? 1 : 0.92))
-                .scaleEffect((item.4 ? 0.94 : 0.95) + (item.4 ? 0.06 : 0.05) * progress)
+                .frame(width: item.3 ? ctaWidth : normalWidth)
+                .opacity(Double(progress) * (item.3 ? 1 : 0.92))
+                .offset(y: (1 - progress) * 16)
+                .scaleEffect((item.3 ? 0.94 : 0.95) + (item.3 ? 0.06 : 0.05) * progress)
                 .animation(
                     .interactiveSpring(response: 0.50, dampingFraction: 0.84, blendDuration: 0.12)
-                        .delay(0.03 * Double(index) + (item.4 ? 0.06 : 0)),
+                        .delay(0.03 * Double(index) + (item.3 ? 0.06 : 0)),
                     value: progress
                 )
             }

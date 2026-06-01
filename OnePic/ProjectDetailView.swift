@@ -8,6 +8,7 @@ import UIKit
 
 struct ProjectDetailView: View {
     let project: Project
+    @EnvironmentObject private var loc: LocalizationManager
 
 #if os(iOS)
     @Environment(\.dismiss) private var dismiss
@@ -40,7 +41,7 @@ struct ProjectDetailView: View {
         .navigationBarBackButtonHidden(true)
         .toolbarBackground(.hidden, for: .navigationBar)
 #else
-        Text("This view is available on iPhone only.")
+        Text(loc.t("platform.iphone_only_detail"))
 #endif
     }
 
@@ -71,6 +72,7 @@ private struct FilmProjectDetailView: View {
     @State private var isDeletePresented = false
     @State private var isCardFlipped = false
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var loc: LocalizationManager
 
     private var currentPhoto: Photo? {
         guard photos.indices.contains(physics.currentIndex) else { return photos.first }
@@ -141,16 +143,16 @@ private struct FilmProjectDetailView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .confirmationDialog("删除这张照片？", isPresented: $isDeletePresented, titleVisibility: .visible) {
-            Button("删除照片", role: .destructive) {
+        .confirmationDialog(loc.t("photo.delete.title"), isPresented: $isDeletePresented, titleVisibility: .visible) {
+            Button(loc.t("photo.delete.action"), role: .destructive) {
                 if let currentPhoto {
                     onDelete(currentPhoto)
                     physics.configure(totalPhotos: max(photos.count - 1, 0))
                 }
             }
-            Button("取消", role: .cancel) {}
+            Button(loc.t("common.cancel"), role: .cancel) {}
         } message: {
-            Text("照片文件和背面的文字都会被删除。")
+            Text(loc.t("photo.delete.message"))
         }
     }
 
@@ -166,7 +168,7 @@ private struct FilmProjectDetailView: View {
                 Text(project.name)
                     .font(.headline.weight(.semibold))
                     .lineLimit(1)
-                Text("尝试用手拨动时间")
+                Text(loc.t("detail.subtitle_swipe_time"))
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.66))
             }
@@ -214,7 +216,7 @@ private struct FilmProjectDetailView: View {
 
             if let currentPhoto {
                 HStack(spacing: 10) {
-                    Text("DAY \(dayNumber(for: currentPhoto))")
+                    Text(loc.tf("detail.day_format", dayNumber(for: currentPhoto)))
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                     Text("·")
                         .foregroundStyle(.white.opacity(0.5))
@@ -224,7 +226,7 @@ private struct FilmProjectDetailView: View {
                         .minimumScaleFactor(0.75)
                 }
             } else {
-                Text("还没有照片")
+                Text(loc.t("detail.empty_photos"))
                     .font(.subheadline.weight(.medium))
             }
         }
@@ -309,7 +311,14 @@ private struct FilmProjectDetailView: View {
             currentImage = nil
             return
         }
-        currentImage = PhotoStore.loadImage(relativePath: currentPhoto.relativePath)
+        let relativePath = currentPhoto.relativePath
+        Task.detached(priority: .userInitiated) {
+            let image = PhotoStore.loadImage(relativePath: relativePath)
+            await MainActor.run {
+                guard self.currentPhoto?.relativePath == relativePath else { return }
+                currentImage = image
+            }
+        }
     }
 
     private func beginEditing() {
@@ -352,7 +361,7 @@ private struct FilmProjectDetailView: View {
 
     private func notePreview(for photo: Photo, showPlaceholder: Bool = true) -> String? {
         let trimmed = (photo.note ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return showPlaceholder ? "点大图编辑这一天的文字" : nil }
+        if trimmed.isEmpty { return showPlaceholder ? loc.t("detail.note_placeholder") : nil }
         return trimmed
     }
 }
@@ -506,6 +515,7 @@ private struct FlipPhotoCard: View {
     let note: String?
     let dayNumber: Int?
     let onEditNote: () -> Void
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         Flip3DCard(isFlipped: isFlipped) {
@@ -529,7 +539,7 @@ private struct FlipPhotoCard: View {
 
             if let dayNumber {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("DAY \(dayNumber)")
+                    Text(loc.tf("detail.day_format", dayNumber))
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.72))
                     if let note {
@@ -562,14 +572,14 @@ private struct FlipPhotoCard: View {
                         Image(systemName: "pencil.line")
                             .font(.system(size: 28, weight: .light))
                             .foregroundStyle(.white.opacity(0.6))
-                        Text("还没有文字")
+                        Text(loc.t("detail.empty_note"))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.5))
                     }
                 }
 
                 Button(action: onEditNote) {
-                    Text("编辑")
+                    Text(loc.t("common.edit"))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.black)
                         .padding(.horizontal, 22)
@@ -853,10 +863,11 @@ private struct DateBadge: View {
     let date: Date
     let dayNumber: Int
     let isVisible: Bool
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("DAY \(dayNumber)")
+            Text(loc.tf("detail.day_format", dayNumber))
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.7))
             Text(date.formatted(.dateTime.year().month().day()))
@@ -877,14 +888,16 @@ private struct DateBadge: View {
 }
 
 private struct EmptyFilmState: View {
+    @EnvironmentObject private var loc: LocalizationManager
+
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "film.stack")
                 .font(.system(size: 40, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.78))
-            Text("还没有胶片")
+            Text(loc.t("detail.empty_film_title"))
                 .font(.headline.weight(.semibold))
-            Text("拍下第一张，时间就会从这里开始。")
+            Text(loc.t("detail.empty_film_message"))
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.66))
                 .multilineTextAlignment(.center)
@@ -904,11 +917,12 @@ private struct PhotoNoteEditorView: View {
     @Binding var note: String
     let onCancel: () -> Void
     let onSave: () -> Void
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
-                Text("照片背面的文字")
+                Text(loc.t("detail.note_editor.title"))
                     .font(.headline.weight(.semibold))
 
                 TextEditor(text: $note)
@@ -918,7 +932,7 @@ private struct PhotoNoteEditorView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         if note.isEmpty {
-                            Text("写一点这一天的变化或心情。")
+                            Text(loc.t("detail.note_editor.placeholder"))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 18)
                                 .padding(.vertical, 20)
@@ -929,14 +943,14 @@ private struct PhotoNoteEditorView: View {
                 Spacer()
             }
             .padding(20)
-            .navigationTitle("编辑 note")
+            .navigationTitle(loc.t("detail.note_editor.nav_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消", action: onCancel)
+                    Button(loc.t("common.cancel"), action: onCancel)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存", action: onSave)
+                    Button(loc.t("common.save"), action: onSave)
                 }
             }
         }

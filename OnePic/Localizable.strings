@@ -1,0 +1,79 @@
+"app.name" = "OnePic";
+
+"home.title" = "Projects";
+
+"common.ok" = "OK";
+"common.cancel" = "Cancel";
+"common.save" = "Save";
+"common.saving" = "Saving…";
+"common.delete" = "Delete";
+"common.done" = "Done";
+"common.edit" = "Edit";
+"common.skip" = "Skip";
+
+"platform.iphone_only" = "Projects are available on iPhone only.";
+"platform.iphone_only_detail" = "This view is available on iPhone only.";
+"platform.iphone_only_camera" = "Camera is available on iPhone only.";
+"platform.iphone_only_reminders" = "Reminders are available on iPhone only.";
+
+"project.new" = "New Project";
+"project.name_placeholder" = "Project name";
+"project.default_name_format" = "Project %d";
+"project.streak_format" = "Streak %d";
+"project.rename.title" = "Rename Project";
+"project.rename.action" = "Rename";
+"project.rename.message" = "Give this project a better name.";
+"project.delete.title" = "Delete project?";
+"project.delete.message" = "All photos and notes in this project will be deleted.";
+
+"photo.delete.title" = "Delete this photo?";
+"photo.delete.action" = "Delete Photo";
+"photo.delete.message" = "The photo file and its note will be deleted.";
+
+"detail.subtitle_swipe_time" = "Swipe to browse time";
+"detail.day_format" = "DAY %d";
+"detail.empty_photos" = "No photos yet";
+"detail.note_placeholder" = "Tap the photo to write a note for this day";
+"detail.empty_note" = "No note yet";
+"detail.empty_film_title" = "No film yet";
+"detail.empty_film_message" = "Take the first photo to start your timeline.";
+"detail.note_editor.title" = "Photo note";
+"detail.note_editor.placeholder" = "Write something about today…";
+"detail.note_editor.nav_title" = "Edit note";
+
+"action.capture" = "Capture";
+"action.view" = "View";
+
+"ghost.settings.title" = "Ghost Overlay";
+"ghost.overlay" = "Overlay";
+"ghost.disable" = "Disable overlay";
+"ghost.use_latest" = "Use latest";
+"ghost.choose_photo" = "Choose overlay photo";
+"ghost.opacity" = "Opacity";
+
+"reminder.settings.title" = "Reminder";
+"reminder.enable_daily" = "Daily reminder";
+"reminder.time" = "Time";
+"reminder.permission_denied.title" = "Notifications disabled";
+"reminder.permission_denied.message" = "Enable notifications in Settings to use reminders.";
+"reminder.notification_body" = "Time to take today's %@";
+
+"camera.simulator.title" = "Camera preview is not available in Simulator";
+"camera.simulator.message" = "Run on a real iPhone to take photos.\n(You can keep testing timeline/export features in Simulator.)";
+"camera.permission.title" = "Camera permission is required.";
+"camera.permission.message" = "Please enable Camera access in Settings.";
+"camera.capture_failed.title" = "Capture failed";
+"camera.completed" = "Saved";
+"camera.note_prompt" = "What do you want to remember today?";
+"camera.note_placeholder" = "Write something, or tap Skip.";
+"camera.error.invalid_photo_data" = "Invalid photo data.";
+"camera.error.encode_jpeg_failed" = "Failed to encode JPEG.";
+
+"camera.face.searching" = "Fit your face in the circle";
+"camera.face.move_closer" = "Move closer";
+"camera.face.move_back" = "Move back";
+"camera.face.good" = "Hold still";
+
+"streak.days_format" = "Streak %d days";
+"streak.prompt_title_format" = "Amazing — you've kept it up for %d days";
+"streak.prompt_subtitle" = "Press and hold the flame";

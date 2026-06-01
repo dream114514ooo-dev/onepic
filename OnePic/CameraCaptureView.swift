@@ -8,6 +8,7 @@ import AudioToolbox
 
 struct CameraCaptureView: View {
     let project: Project
+    @EnvironmentObject private var loc: LocalizationManager
 #if os(iOS)
     @Environment(\.dismiss) private var dismiss
     @AppStorage("onepic_pendingDetailProjectID") private var pendingDetailProjectID = ""
@@ -26,15 +27,10 @@ struct CameraCaptureView: View {
     @State private var showGrid = false
     @State private var isCapturing = false
     @State private var lastSliderStep = 0
-    @State private var streakFlameScale: CGFloat = 1.0
-    @State private var streakIsLit = false
-    @State private var streakIsExpanded = false
     @State private var flashOpacity: CGFloat = 0
     @State private var shutterInFlight = false
     @State private var shutterCoreOffset: CGFloat = 0
     @State private var shutterCoreDim: CGFloat = 0
-    @State private var showStreakEasterEgg = false
-    @State private var streakBackdropImage: UIImage?
 #endif
 
     #if os(iOS)
@@ -60,9 +56,9 @@ struct CameraCaptureView: View {
             VStack(spacing: 12) {
                 Image(systemName: "video.slash.fill")
                     .font(.system(size: 44, weight: .semibold))
-                Text("Simulator 不支持相机预览")
+                Text(loc.t("camera.simulator.title"))
                     .font(.headline)
-                Text("请用真机运行 onepic 才能拍照。\n（时间线/导出等功能后续可以继续在模拟器测试）")
+                Text(loc.t("camera.simulator.message"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -95,7 +91,7 @@ struct CameraCaptureView: View {
                             .allowsHitTesting(false)
                     }
 
-                    if camera.position == .front, pendingPhoto == nil, !showStreakEasterEgg {
+                    if camera.position == .front, pendingPhoto == nil {
                         FaceDistanceGuideOverlay(faceRect: camera.faceRect)
                             .ignoresSafeArea()
                             .allowsHitTesting(false)
@@ -112,9 +108,9 @@ struct CameraCaptureView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 40, weight: .semibold))
-                        Text("Camera permission is required.")
+                        Text(loc.t("camera.permission.title"))
                             .font(.headline)
-                        Text("Please enable Camera access in Settings.")
+                        Text(loc.t("camera.permission.message"))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -141,20 +137,6 @@ struct CameraCaptureView: View {
                     .zIndex(2)
                 }
 
-                if showStreakEasterEgg {
-                    StreakFlameEasterEgg(
-                        streakCount: project.currentStreak,
-                        backdropImage: streakBackdropImage,
-                        onCompleted: {
-                            showStreakEasterEgg = false
-                            streakBackdropImage = nil
-                            pendingDetailProjectID = project.id.uuidString
-                            pendingDetailNonce &+= 1
-                            dismiss()
-                        }
-                    )
-                    .zIndex(3)
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.spring(response: 0.35, dampingFraction: 0.86), value: pendingPhoto?.id)
@@ -181,8 +163,8 @@ struct CameraCaptureView: View {
             }
             ghostImage = PhotoStore.loadImage(relativePath: path)
         }
-        .alert("Capture failed", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-            Button("OK", role: .cancel) { errorMessage = nil }
+        .alert(loc.t("camera.capture_failed.title"), isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button(loc.t("common.ok"), role: .cancel) { errorMessage = nil }
         } message: {
             if let errorMessage {
                 Text(errorMessage)
@@ -192,7 +174,7 @@ struct CameraCaptureView: View {
 #else
         ZStack {
             Color.black.ignoresSafeArea()
-            Text("Camera is available on iPhone only.")
+            Text(loc.t("platform.iphone_only_camera"))
                 .foregroundStyle(.white)
         }
 #endif
@@ -231,8 +213,8 @@ struct CameraCaptureView: View {
             .padding(.bottom, safeAreaBottomInset + 28)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
-        .opacity(pendingPhoto == nil && !showStreakEasterEgg ? 1 : 0)
-        .allowsHitTesting(pendingPhoto == nil && !showStreakEasterEgg)
+        .opacity(pendingPhoto == nil ? 1 : 0)
+        .allowsHitTesting(pendingPhoto == nil)
     }
 
     private var topBar: some View {
@@ -246,7 +228,7 @@ struct CameraCaptureView: View {
             Spacer()
 
             GlassCapsule {
-                Text("DAY \(dayNumber)")
+                Text(loc.tf("detail.day_format", dayNumber))
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.95))
             }
@@ -348,76 +330,6 @@ struct CameraCaptureView: View {
         .allowsHitTesting(pendingPhoto == nil)
     }
 
-    private var streakBadge: some View {
-        VStack {
-            if streakIsExpanded {
-                VStack(spacing: 8) {
-                    HStack(spacing: 6) {
-                        Text("🔥")
-                            .font(.system(size: 28))
-                        Text("\(project.currentStreak)")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
-
-                    Text("连拍 \(project.currentStreak) 天")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.85))
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(.ultraThinMaterial)
-                .background(Color.orange.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.orange.opacity(0.6), .orange.opacity(0.2)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                )
-            } else {
-                Text("🔥")
-                    .font(.system(size: 32))
-                    .scaleEffect(streakFlameScale)
-                    .opacity(streakIsLit ? 1.0 : 0.5)
-                    .shadow(color: streakIsLit ? .orange.opacity(0.8) : .clear, radius: 12, x: 0, y: 0)
-            }
-        }
-        .padding(.trailing, 20)
-        .padding(.bottom, safeAreaBottomInset + 120)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        .opacity(pendingPhoto == nil ? 1 : 0)
-        .allowsHitTesting(pendingPhoto == nil)
-        .gesture(
-            LongPressGesture(minimumDuration: 0.6)
-                .onChanged { _ in
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    withAnimation(.easeIn(duration: 0.8)) { streakIsLit = true }
-                    streakFlameScale = 1.1
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                            streakIsExpanded = true
-                        }
-                    }
-                }
-                .onEnded { _ in
-                    streakFlameScale = 1.0
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        withAnimation(.easeOut(duration: 0.6)) {
-                            streakIsLit = false
-                            streakIsExpanded = false
-                        }
-                    }
-                }
-        )
-    }
-
     private var dayNumber: Int {
         let calendar = Calendar.current
         let days = calendar.dateComponents([.day], from: project.createdAt, to: Date()).day ?? 0
@@ -504,7 +416,7 @@ struct CameraCaptureView: View {
 
     private func prepareCapturedPhoto(data: Data) throws {
         guard let rawImage = UIImage(data: data) else {
-            throw NSError(domain: "onepic.capture", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid photo data."])
+            throw NSError(domain: "onepic.capture", code: 1, userInfo: [NSLocalizedDescriptionKey: loc.t("camera.error.invalid_photo_data")])
         }
 
         let shotAt = Date()
@@ -521,14 +433,14 @@ struct CameraCaptureView: View {
             try saveCapturedPhoto(pendingPhoto, note: noteOverride ?? noteDraft)
             isSaving = false
             saveCompleted = true
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 900_000_000)
-                self.streakBackdropImage = pendingPhoto.image
-                self.pendingPhoto = nil
-                self.noteDraft = ""
-                self.saveCompleted = false
-                self.showStreakEasterEgg = true
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                AudioServicesPlaySystemSound(1007)
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                pendingDetailProjectID = project.id.uuidString
+                pendingDetailNonce &+= 1
+                dismiss()
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -546,7 +458,7 @@ struct CameraCaptureView: View {
         let url = PhotoStore.url(for: relativePath)
 
         guard let jpgData = image.jpegData(compressionQuality: 0.95) else {
-            throw NSError(domain: "onepic.capture", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to encode JPEG."])
+            throw NSError(domain: "onepic.capture", code: 2, userInfo: [NSLocalizedDescriptionKey: loc.t("camera.error.encode_jpeg_failed")])
         }
         try jpgData.write(to: url, options: [.atomic])
 
@@ -587,6 +499,7 @@ private struct PendingCapturedPhoto: Identifiable {
 
 private struct FaceDistanceGuideOverlay: View {
     let faceRect: CGRect?
+    @EnvironmentObject private var loc: LocalizationManager
 
     private var guideState: FaceGuideState {
         guard let faceRect else { return .searching }
@@ -618,7 +531,7 @@ private struct FaceDistanceGuideOverlay: View {
                         .frame(width: circleSize - 24, height: circleSize - 24)
                 }
                 .overlay(alignment: .bottom) {
-                    Text(guideState.message)
+                    Text(loc.t(guideState.messageKey))
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
@@ -638,16 +551,16 @@ private enum FaceGuideState {
     case moveBack
     case good
 
-    var message: String {
+    var messageKey: String {
         switch self {
         case .searching:
-            return "把脸放进圆框"
+            return "camera.face.searching"
         case .moveCloser:
-            return "靠近一点"
+            return "camera.face.move_closer"
         case .moveBack:
-            return "远一点"
+            return "camera.face.move_back"
         case .good:
-            return "保持住"
+            return "camera.face.good"
         }
     }
 
@@ -672,6 +585,7 @@ private struct CaptureNoteOverlay: View {
     let onCancel: () -> Void
     let onSkip: () -> Void
     let onSave: () -> Void
+    @EnvironmentObject private var loc: LocalizationManager
 
     var body: some View {
         GeometryReader { proxy in
@@ -725,7 +639,7 @@ private struct CaptureNoteOverlay: View {
                     .foregroundStyle(.green)
                     .symbolRenderingMode(.hierarchical)
 
-                Text("完成")
+                Text(loc.t("camera.completed"))
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
             }
@@ -745,13 +659,13 @@ private struct CaptureNoteOverlay: View {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 15, weight: .semibold))
-                    Text("今天想记下什么？")
+                    Text(loc.t("camera.note_prompt"))
                         .font(.headline.weight(.semibold))
                 }
 
                 Spacer()
 
-                Button("跳过", action: onSkip)
+                Button(loc.t("common.skip"), action: onSkip)
                     .font(.subheadline.weight(.semibold))
                     .disabled(isSaving)
             }
@@ -763,7 +677,7 @@ private struct CaptureNoteOverlay: View {
                 .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(alignment: .topLeading) {
                     if note.isEmpty {
-                        Text("写一点变化、心情，或者点跳过。")
+                        Text(loc.t("camera.note_placeholder"))
                             .foregroundStyle(.white.opacity(0.62))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 18)
@@ -795,7 +709,7 @@ private struct CaptureNoteOverlay: View {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 15, weight: .bold))
                         }
-                        Text(isSaving ? "保存中" : "保存")
+                        Text(isSaving ? loc.t("common.saving") : loc.t("common.save"))
                             .font(.headline.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity)
@@ -1002,6 +916,7 @@ private struct StreakFlameEasterEgg: View {
     let streakCount: Int
     let backdropImage: UIImage?
     let onCompleted: () -> Void
+    @EnvironmentObject private var loc: LocalizationManager
 
     @State private var igniteProgress: CGFloat = 0
     @State private var isPressing = false
@@ -1040,7 +955,7 @@ private struct StreakFlameEasterEgg: View {
                 VStack(spacing: 10) {
                     Text("🔥")
                         .font(.system(size: 34))
-                    Text("连续打卡 \(streakCount) 天")
+                    Text(loc.tf("streak.days_format", streakCount))
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(.white)
                 }
@@ -1157,12 +1072,12 @@ private struct StreakFlameEasterEgg: View {
 
     private var promptCard: some View {
         VStack(spacing: 10) {
-            Text("真厉害，你已经坚持了 \(streakCount) 天")
+            Text(loc.tf("streak.prompt_title_format", streakCount))
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
-            Text("请长按火焰")
+            Text(loc.t("streak.prompt_subtitle"))
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.9))
         }
